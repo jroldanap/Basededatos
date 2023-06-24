@@ -13,7 +13,7 @@ La Esp32 la utilizamos en un entorno de adquision de datos, lo cual en esta prac
 Para realizar esta practica necesitas lo siguiente
 
 - [WOKWI](https://https://wokwi.com/)
-- 1 relevador ultrasonico
+- 1 sensor ultrasonico
 - 2 Relevador con led.
 - 1 resistencia.
 - 1 led rojo.
@@ -45,12 +45,11 @@ Para poder usar este repositorio necesitas entrar a la plataforma [WOKWI](https:
 
 const char* ssid = "Wokwi-GUEST";
 const char* password = "";
-const char* mqttServer = "52.28.81.162";
+const char* mqttServer = "44.195.202.69";
 const int mqttPort = 1883;
 const char* mqttUser = "EqJJU-1";
-const char* mqttPassword = "1234";
+const char* mqttPassword = "123456";
 const char* mqttTopic = "EqJJU-1";
-
 WiFiClient espClient;
 PubSubClient client(espClient);
 LiquidCrystal_I2C lcd(I2C_ADDR, LCD_COLUMNS, LCD_LINES);
@@ -105,10 +104,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
   if (strcmp(topic, mqttTopic) == 0) {
     if ((char)payload[0] == '1') {
       digitalWrite(ledPin, HIGH);
-       digitalWrite(ledPin2, LOW);
     } else {
       digitalWrite(ledPin, LOW);
-       digitalWrite(ledPin2, HIGH);
     }
   }
   
@@ -144,7 +141,7 @@ delay (2000);
 lcd.setCursor(0, 0);
   lcd.print("  Llenando  ");
   lcd.setCursor(0, 1);  
-  lcd.print("  ... ... ...   " );
+  lcd.print("      ...    " );
 delay (5000);
 }
 
@@ -172,9 +169,9 @@ if (safetyDistance >= 5 && safetyDistance<=350){
 
   digitalWrite(ledproce1, HIGH);
   lcd.setCursor(0, 0);
-  lcd.print("   Nivel insuficiente " );
+  lcd.print("Nivel insuficiente " );
   lcd.setCursor(0, 1);
-  lcd.print(   "  ... ... ...    "     );
+  lcd.print(   "     ...     "     );
   delay(1000);
   lcd.setCursor(0, 0);
   lcd.print("Nivel en tanque:        " );
@@ -188,7 +185,7 @@ if (safetyDistance >= 350 && safetyDistance<=400){
   lcd.setCursor(0, 0);
   lcd.print(" Tanque  Lleno   " );
   lcd.setCursor(0, 1);
-  lcd.print(   "     ...        "     );
+  lcd.print(   "      ...        "     );
   delay(1000);
   lcd.setCursor(0, 0);
   lcd.print("Nivel en tanque:        " );
@@ -200,51 +197,40 @@ if (safetyDistance >= 350 && safetyDistance<=400){
 
  if (digitalRead (ledPin) == 1)
 {
-
+safetyDistance==1;
 lcd.setCursor(0, 0);
   lcd.print("  Mezclando      " );
   lcd.setCursor(0, 1);
   lcd.print(   "              "  );
-delay(3500);
+delay(10000);
+digitalWrite(ledPin2, HIGH);
 }
 if (digitalRead (ledPin2) == 1)
 {
+  digitalWrite(ledPin, LOW);
   digitalWrite(ledproce1, 0);
   lcd.setCursor(0, 0);
-  lcd.print("    Vaciando        " );
+  lcd.print("     Vaciando        " );
   lcd.setCursor(0, 1);
-  lcd.print(  "     ...           "  );
+  lcd.print(  "      ...           "  );
   delay(10000);
   lcd.setCursor(0, 0);
   lcd.print("  Fin del proceso      " );
   lcd.setCursor(0, 1);
   lcd.print(  "    Gracias    "  );
   delay(15000);
+  digitalWrite(ledPin2, LOW);
+  delay(100);
 }
 Serial.print("Litros: ");
 Serial.println(d);
 delay (1000);
-}
 
-void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Mensaje recibido: [");
-  Serial.print(topic);
-  Serial.print("] ");
-  for (int i = 0; i < length; i++) {
-    Serial.print((char)payload[i]);
-  }
-  Serial.println();
-
-  if (strcmp(topic, mqttTopic) == 0) {
-    if ((char)payload[0] == '1') {
-      digitalWrite(ledPin, HIGH);
-       digitalWrite(ledPin2, LOW);
-    } else {
-      digitalWrite(ledPin, LOW);
-       digitalWrite(ledPin2, HIGH);
-    }
-  }
-  
+String output;
+Serial.print("Publish message: ");
+    Serial.println(output);
+    Serial.println(output.c_str());
+    client.publish("Equipo-/1", output.c_str());
 }
 ```
 
@@ -256,19 +242,19 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 ![](https://github.com/jroldanap/Proyecto/blob/main/conexion.png?raw=true)
 
-4. Poner el bloque switch en el programa Node-Red y cambiar el topic a *mezclado*.
+4. Poner el bloque switch en el programa Node-Red, cambiar el topic a *mezclado*, cambiar *on payload* en la flecha a *string*, agregar el num 1, cambiar *off payload* en la flecha a *string*, agregar el num 0.
 
-![](https://github.com/jroldanap/Proyecto/blob/main/label%20.png?raw=true)
+![](https://github.com/jroldanap/Basededatos/blob/main/swit.png?raw=true)
 
 
 
-5. Añadir el bloque *mqtt out* y el server a  *52.29.234.128* y modificar el topic a *EqJJU-1*.
+5. Añadir el bloque *mqtt out* y el server a  *44.195.202.69* y modificar el topic a *EqJJU-1*.
 
-![](https://github.com/jroldanap/Proyecto/blob/main/mqqt.png?raw=true)
+![](https://github.com/jroldanap/Basededatos/blob/main/out.png?raw=true)
 
-6. Añadir el bloque *mqtt in* y el server a  *52.29.234.128* y modificar el topic a *Equipo-/1*.
+6. Añadir el bloque *mqtt in* y el server a  *44.195.202.69* y modificar el topic a *Equipo-/1*.
 
-![](https://github.com/jroldanap/Proyecto/blob/main/mq.png?raw=true)
+![](https://github.com/jroldanap/Basededatos/blob/main/in.png?raw=true)
 
 7. Añadir el bloque debug y poner la configuracion como se muestra en la imagen..
 
@@ -298,22 +284,26 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
 Cuando haya funcionado, al poner la distancia en 400 en el sensor ultrasonico y presionar el boton mezclado en  node red, se mezclara y despues se vaciara.
 
+![](https://github.com/jroldanap/Basededatos/blob/main/nivel%20insuficiente.jpeg?raw=true)
+
 ![](https://github.com/jroldanap/Proyecto/blob/main/tanque%20lleno.png?raw=true)
 
 ![](https://github.com/jroldanap/Proyecto/blob/main/mix.jpeg?raw=true)
 
 ![](https://github.com/jroldanap/Proyecto/blob/main/empty.jpeg?raw=true)
-
 
 
 
 ## Evidencias de programa corriendo
 
+![](https://github.com/jroldanap/Basededatos/blob/main/nivel%20insuficiente.jpeg?raw=true)
+
 ![](https://github.com/jroldanap/Proyecto/blob/main/tanque%20lleno.png?raw=true)
 
 ![](https://github.com/jroldanap/Proyecto/blob/main/mix.jpeg?raw=true)
 
 ![](https://github.com/jroldanap/Proyecto/blob/main/empty.jpeg?raw=true)
+
 
 
 # Créditos
