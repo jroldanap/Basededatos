@@ -320,6 +320,6 @@ Cuando haya funcionado, al poner la distancia en 400 en el sensor ultrasonico y 
 
 Desarrollado por Jorge Esteban Lopez Quiroz , Uriel Mastache Juarez y Jorge Alberto Roldan Aponte.
 
-- Jorge Esteban Lopez Quiroz [GitHub](hhttps://github.com/jorgelopezquiroz)
+- Jorge Esteban Lopez Quiroz [GitHub](https://github.com/jorgelopezquiroz)
 - Uriel Mastache Juarez [GitHub](https://github.com/UrielMastache)
 - Jorge Alberto Roldan Aponte  [GitHub](https://github.com/jroldanap)
