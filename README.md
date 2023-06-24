@@ -1,12 +1,11 @@
-# Base de datos
-
-Este repositorio muestra como podemos programar una ESP32 con el sensor dht,un sensor ultrasonico mostrar los resultados de humedad, temperatura y distancia en node-red atraves de indicadores y guardarlos en en el programa myphpMyAdm como un base de datos.
+# Proyecto ESP32 con Node-Red.
+Este repositorio muestra como podemos programar una ESP32 con relevadores para simular motores, realizar un proceso industrial de liquidos para llenado mezclado y vaciado de un liquido.
 
 ## Introducción
 
 ### Descripción
 
-La Esp32 la utilizamos en un entorno de adquision de datos, lo cual en esta practica ocuparemos un sensor dht, ultrasonico para adquirir la temperatura,la humedad y la distancia que se vera reflejado en Node-Red como indicadores y guardarlos en en el programa myphpMyAdmin como un base de datos ; Cabe aclarar que esta practica se usara un simulador llamado [WOKWI](https://https://wokwi.com/).
+La Esp32 la utilizamos en un entorno de adquision de datos, lo cual en esta practica ocuparemos relevadores para simular motores, realizar un proceso industrial de liquidos para llenado mezclado y vaciado de un liquido, con un boton que se vera reflejado en Node-Red para el mezclado ; Cabe aclarar que esta practica se usara un simulador llamado [WOKWI](https://https://wokwi.com/).
 
 
 ## Material Necesario
@@ -14,11 +13,13 @@ La Esp32 la utilizamos en un entorno de adquision de datos, lo cual en esta prac
 Para realizar esta practica necesitas lo siguiente
 
 - [WOKWI](https://https://wokwi.com/)
-- Tarjeta ESP 32
-- Sensor DHT22
-- Sensor ultrasonico
+- 1 relevador ultrasonico
+- 2 Relevador con led.
+- 1 resistencia.
+- 1 led rojo.
+- Pantalla LCD 16X32.
 - Programa Node-Red (previamente instalado en https://github.com/DiegoJm10/Node-red-instalacion)
-- Programa myphpMyAdmin ( previamente instalado en https://github.com/DiegoJm10/Instalacion-de-base-de-datos)
+
 
 
 ## Instrucciones
@@ -33,57 +34,67 @@ Para poder usar este repositorio necesitas entrar a la plataforma [WOKWI](https:
 1. Abrir la terminal de programación y colocar la siguente programación:
 
 ```
-#include <ArduinoJson.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <ArduinoJson.h>
 #define BUILTIN_LED 2
-#include "DHTesp.h"
-const int DHT_PIN = 15;
-DHTesp dhtSensor;
-// Update these with values suitable for your network.
+#include <LiquidCrystal_I2C.h>
+#define I2C_ADDR    0x27
+#define LCD_COLUMNS 20
+#define LCD_LINES   4
 
 const char* ssid = "Wokwi-GUEST";
 const char* password = "";
-const char* mqtt_server = "44.195.202.69"; 
-String username_mqtt="jorgeroldan";
-String password_mqtt="1234";
+const char* mqttServer = "52.28.81.162";
+const int mqttPort = 1883;
+const char* mqttUser = "EqJJU-1";
+const char* mqttPassword = "1234";
+const char* mqttTopic = "EqJJU-1";
 
 WiFiClient espClient;
 PubSubClient client(espClient);
-unsigned long lastMsg = 0;
-#define MSG_BUFFER_SIZE  (50)
-char msg[MSG_BUFFER_SIZE];
-int value = 0;
+LiquidCrystal_I2C lcd(I2C_ADDR, LCD_COLUMNS, LCD_LINES);
 
-const int Trigger = 4;   //Pin digital 2 para el Trigger del sensor
-const int Echo = 27;   //Pin digital 3 para el Echo del sensor
-
+const int trigPin = 13;
+const int echoPin = 12;
+const int ledproce1 = 5 ;
+int ledPin = 19; // Pin del LED
+int ledPin2 = 18; // Pin del LED2
+long duration;
+int distance;
+int safetyDistance;
+const int Trigger = 13;   //Pin digital 2 para el Trigger del sensor
+const int Echo = 12;   //Pin digital 3 para el Echo del sensor
 void setup_wifi() {
-
   delay(10);
-  // We start by connecting to a WiFi network
   Serial.println();
-  Serial.print("Connecting to ");
+  Serial.print("Conectando a: ");
   Serial.println(ssid);
-
-  WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
-
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
-
-  randomSeed(micros());
-
   Serial.println("");
-  Serial.println("WiFi connected");
-  Serial.println("IP address: ");
-  Serial.println(WiFi.localIP());
+  Serial.println("Conectado a la red WiFi");
 }
 
+void reconnect() {
+  while (!client.connected()) {
+    Serial.print("Intentando conexión MQTT...");
+    if (client.connect("ESP32Client", mqttUser, mqttPassword)) {
+      Serial.println("Conectado");
+      client.subscribe(mqttTopic);
+    } else {
+      Serial.print("Error de conexión, rc=");
+      Serial.print(client.state());
+      Serial.println(" Intentando de nuevo en 5 segundos");
+      delay(5000);
+    }
+  }
+}
 void callback(char* topic, byte* payload, unsigned int length) {
-  Serial.print("Message arrived [");
+  Serial.print("Mensaje recibido: [");
   Serial.print(topic);
   Serial.print("] ");
   for (int i = 0; i < length; i++) {
@@ -91,61 +102,59 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
   Serial.println();
 
-  // Switch on the LED if an 1 was received as first character
-  if ((char)payload[0] == '1') {
-    digitalWrite(BUILTIN_LED, LOW);   
-    // Turn the LED on (Note that LOW is the voltage level
-    // but actually the LED is on; this is because
-    // it is active low on the ESP-01)
-  } else {
-    digitalWrite(BUILTIN_LED, HIGH);  
-    // Turn the LED off by making the voltage HIGH
-  }
-
-}
-
-void reconnect() {
-  // Loop until we're reconnected
-  while (!client.connected()) {
-    Serial.print("Attempting MQTT connection...");
-    // Create a random client ID
-    String clientId = "ESP8266Client-";
-    clientId += String(random(0xffff), HEX);
-    // Attempt to connect
-    if (client.connect(clientId.c_str(), username_mqtt.c_str() , password_mqtt.c_str())) {
-      Serial.println("connected");
-      // Once connected, publish an announcement...
-      client.publish("outTopic", "hello world");
-      // ... and resubscribe
-      client.subscribe("inTopic");
+  if (strcmp(topic, mqttTopic) == 0) {
+    if ((char)payload[0] == '1') {
+      digitalWrite(ledPin, HIGH);
+       digitalWrite(ledPin2, LOW);
     } else {
-      Serial.print("failed, rc=");
-      Serial.print(client.state());
-      Serial.println(" try again in 5 seconds");
-      // Wait 5 seconds before retrying
-      delay(5000);
+      digitalWrite(ledPin, LOW);
+       digitalWrite(ledPin2, HIGH);
     }
   }
-}
-
+  
+  }
 void setup() {
   pinMode(BUILTIN_LED, OUTPUT);     // Initialize the BUILTIN_LED pin as an output
+  pinMode(ledPin, OUTPUT);
+  pinMode(ledPin2, OUTPUT);
   Serial.begin(115200);
   setup_wifi();
-  client.setServer(mqtt_server, 1883);
+  client.setServer(mqttServer, mqttPort);
   client.setCallback(callback);
-  dhtSensor.setup(DHT_PIN, DHTesp::DHT22);
-  pinMode(Trigger, OUTPUT); //pin como salida
+    pinMode(Trigger, OUTPUT); //pin como salida
   pinMode(Echo, INPUT);  //pin como entrada
   digitalWrite(Trigger, LOW);//Inicializamos el pin con 0
+    lcd.init();
+  lcd.backlight();
+  pinMode(ledproce1, OUTPUT);
+   Serial.begin(115200);
+  Serial.println("Hello, ESP32!");
+
+  lcd.setCursor(0, 0);
+  lcd.print("  Bienvenidos    ");
+  lcd.setCursor(0, 1);  
+  lcd.print(" Al mixer 3000     " );
+delay (4000);
+
+lcd.setCursor(0, 0);
+  lcd.print("   Iniciando     ");
+  lcd.setCursor(0, 1);  
+  lcd.print("      ...          " );
+delay (2000);
+lcd.setCursor(0, 0);
+  lcd.print("  Llenando  ");
+  lcd.setCursor(0, 1);  
+  lcd.print("  ... ... ...   " );
+delay (5000);
 }
 
 void loop() {
-
-
-delay(1000);
-
-long t; //timepo que demora en llegar el eco
+  if (!client.connected()) {
+    reconnect();
+  }
+  client.loop();
+  delay(1000);
+  long t; //timepo que demora en llegar el eco
   long d; //distancia en centimetros
 
   digitalWrite(Trigger, HIGH);
@@ -154,176 +163,163 @@ long t; //timepo que demora en llegar el eco
   
   t = pulseIn(Echo, HIGH); //obtenemos el ancho del pulso
   d = t/59;             //escalamos el tiempo a una distancia en cm
+    lcd.setCursor(0, 0);
+  lcd.print("Nivel en tanque:        " );
+  lcd.setCursor(0, 1);
+  lcd.print(       String(d) + " L            "     );
+delay(1500);
+if (safetyDistance >= 5 && safetyDistance<=350){
 
-TempAndHumidity  data = dhtSensor.getTempAndHumidity();
-  if (!client.connected()) {
-    reconnect();
+  digitalWrite(ledproce1, HIGH);
+  lcd.setCursor(0, 0);
+  lcd.print("   Nivel insuficiente " );
+  lcd.setCursor(0, 1);
+  lcd.print(   "  ... ... ...    "     );
+  delay(1000);
+  lcd.setCursor(0, 0);
+  lcd.print("Nivel en tanque:        " );
+  lcd.setCursor(0, 1);
+  lcd.print(       String(d) + " L            "     );
+ 
+}
+if (safetyDistance >= 350 && safetyDistance<=400){
+
+  digitalWrite(ledproce1, LOW);
+  lcd.setCursor(0, 0);
+  lcd.print(" Tanque  Lleno   " );
+  lcd.setCursor(0, 1);
+  lcd.print(   "     ...        "     );
+  delay(1000);
+  lcd.setCursor(0, 0);
+  lcd.print("Nivel en tanque:        " );
+  lcd.setCursor(0, 1);
+  lcd.print(       String(d) + " L            "     );
+ 
+}
+ safetyDistance = d;
+
+ if (digitalRead (ledPin) == 1)
+{
+
+lcd.setCursor(0, 0);
+  lcd.print("  Mezclando      " );
+  lcd.setCursor(0, 1);
+  lcd.print(   "              "  );
+delay(3500);
+}
+if (digitalRead (ledPin2) == 1)
+{
+  digitalWrite(ledproce1, 0);
+  lcd.setCursor(0, 0);
+  lcd.print("    Vaciando        " );
+  lcd.setCursor(0, 1);
+  lcd.print(  "     ...           "  );
+  delay(10000);
+  lcd.setCursor(0, 0);
+  lcd.print("  Fin del proceso      " );
+  lcd.setCursor(0, 1);
+  lcd.print(  "    Gracias    "  );
+  delay(15000);
+}
+Serial.print("Litros: ");
+Serial.println(d);
+delay (1000);
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  Serial.print("Mensaje recibido: [");
+  Serial.print(topic);
+  Serial.print("] ");
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
   }
-  client.loop();
+  Serial.println();
 
-  unsigned long now = millis();
-  if (now - lastMsg > 2000) {
-    lastMsg = now;
-    //++value;
-    //snprintf (msg, MSG_BUFFER_SIZE, "hello world #%ld", value);
-
-    StaticJsonDocument<128> doc;
-
-    doc["DEVICE"] = "ESP32";
-    //doc["Anho"] = 2022;
-    //doc["Empresa"] = "Educatronicos";
-    doc["TEMPERATURA"] = String(data.temperature, 1);
-    doc["HUMEDAD"] = String(data.humidity, 1);
-    doc["DISTANCIA"] = d;
-   
-
-    String output;
-    
-    serializeJson(doc, output);
-
-    Serial.print("Publish message: ");
-    Serial.println(output);
-    Serial.println(output.c_str());
-    client.publish("jorge/diplomado", output.c_str());
+  if (strcmp(topic, mqttTopic) == 0) {
+    if ((char)payload[0] == '1') {
+      digitalWrite(ledPin, HIGH);
+       digitalWrite(ledPin2, LOW);
+    } else {
+      digitalWrite(ledPin, LOW);
+       digitalWrite(ledPin2, HIGH);
+    }
   }
-
+  
 }
 ```
 
-2. Instalar las librerias de *Arduino.Json*, *PubSubClient*, *DHT sensor library for ESPx* como se muestra en la siguente imagen.
+2. Instalar las librerias de *PubSubClient*, *LiquidCrystal i2c*, *ArduinoJson* como se muestra en la siguente imagen.
 
-![](https://github.com/jroldanap/esp32connered/blob/main/librerias.png?raw=true)
+![](https://github.com/jroldanap/Proyecto/blob/main/librerias.png?raw=true)
 
-3. Hacer la conexion de los sensores *DHT22, ultrasonico*, con la *ESP32* como se muestra en la siguente imagen.
+3. Hacer la conexion de los *relevadores la pantalla lcd, el sensor ultrasonico, el led y la resistencia*, con la *ESP32* como se muestra en la siguente imagen.
 
-![](https://github.com/jroldanap/esp32consensordht22ultrasonico/blob/main/dht%20ultra.png?raw=true)
+![](https://github.com/jroldanap/Proyecto/blob/main/conexion.png?raw=true)
 
-4. Poner la funcion mqtt in en programa Node-Red y cambiar el topic a *jorge/diplomado* y el id del servidor a 44.195.202.69, como se muestra en la imagen.
+4. Poner el bloque switch en el programa Node-Red y cambiar el topic a *mezclado*.
 
-![](https://github.com/jroldanap/esp32connered/blob/main/mqqt.png?raw=true)
-
-![](https://github.com/jroldanap/esp32connered/blob/main/id.png?raw=true)
-
-5. Añadir el bloque json y cambiar la Action a *Always convert to script object*.
-
-![](https://github.com/jroldanap/esp32connered/blob/main/json.png?raw=true)
-
-6. Añadir el bloque function y cambiar el Name a *TEMPERATURA* y pegar el siguiente codigo:
-
-msg.payload = msg.payload.TEMPERATURA;
-
-msg.topic = "TEMPERATURA";
-
-return msg;
-
- en la barra como se muestar en al imagen.
-
-![](https://github.com/jroldanap/esp32connered/blob/main/temp.png?raw=true)
+![](https://github.com/jroldanap/Proyecto/blob/main/label%20.png?raw=true)
 
 
-7. Añadir el bloque function y cambiar el Name a *HUMEDAD* y pegar el siguiente codigo:
 
-msg.payload = msg.payload.HUMEDAD;
+5. Añadir el bloque *mqtt out* y el server a  *52.29.234.128* y modificar el topic a *EqJJU-1*.
 
-msg.topic = "HUMEDAD";
+![](https://github.com/jroldanap/Proyecto/blob/main/mqqt.png?raw=true)
 
-return msg;
+6. Añadir el bloque *mqtt in* y el server a  *52.29.234.128* y modificar el topic a *Equipo-/1*.
 
- en la barra como se muestar en al imagen.
+![](https://github.com/jroldanap/Proyecto/blob/main/mq.png?raw=true)
 
-![](https://github.com/jroldanap/esp32connered/blob/main/humeda.png?raw=true)
-
-8. Añadir el bloque gauge (1) y poner la configuracion como se muestra en la imagen.
-
-![](https://github.com/jroldanap/esp32connered/blob/main/gauge.png?raw=true)
-
-9. Añadir el bloque gauge (2) y poner la configuracion como se muestra en la imagen.
-
-![](https://github.com/jroldanap/esp32connered/blob/main/gau.png?raw=true)
-
-
-10. Añadir el bloque function y cambiar el Name a *DISTANCIA* y pegar el siguiente codigo:
-
-msg.payload = msg.payload.DISTANCIA;
-
-msg.topic = "DISTANCIA";
-
-return msg;
-
- en la barra como se muestar en al imagen.
-
-![](https://github.com/jroldanap/esp32noderedultrasonic/blob/main/DIST.png?raw=true)
-
-11. Añadir el bloque gauge (3) y poner la configuracion como se muestra en la imagen.
-
-![](https://github.com/jroldanap/esp32noderedultrasonic/blob/main/ga.png?raw=true)
-
-12. Añadir el bloque function y pegar el siguiente codigo:
-```
-var query = "INSERT INTO `diplo2023` (`ID`, `FECHA`, `DEVICE`, `TEMPERATURA`, `HUMEDAD`, `DISTANCIA`)  VALUES (NULL, current_timestamp(), '";
-query = query + msg.payload.DEVICE + "','";
-query = query + msg.payload.TEMPERATURA + "','";
-query = query + msg.payload.HUMEDAD + "','";
-query = query + msg.payload.DISTANCIA + "');'";
-msg.topic = query;
-return msg;
-```
-
- en la barra como se muestra en al imagen.
-
-![](https://github.com/jroldanap/Basededatos/blob/main/function.png?raw=true)
-
-13. Añadir el bloque mysql y poner la configuracion como se muestra en la imagen.
-
-![](https://github.com/jroldanap/Basededatos/blob/main/MYSQL.png?raw=true)
-
-14. Añadir el bloque debug y poner la configuracion como se muestra en la imagen.
+7. Añadir el bloque debug y poner la configuracion como se muestra en la imagen..
 
 ![](https://github.com/jroldanap/Basededatos/blob/main/debug.png?raw=true)
 
+8. Conectar los bloques entre si de la siguiente forma.
 
-15. Todos los bloques conectados de la siguiente forma en Node-Red
-![](https://github.com/jroldanap/Basededatos/blob/main/diagrama.png?raw=true)
+![](https://github.com/jroldanap/Proyecto/blob/main/node.png?raw=true)
 
-16. Dar click en la flecha en la opcion dashboard y visualizar las graficas.
 
-![](https://github.com/jroldanap/esp32consensordht22ultrasonico/blob/main/FLEC.png?raw=true)
+9. Dar click en flecha en rojo para ver el boton, como se muestra en la imagen.
+
+![](https://github.com/jroldanap/esp32led/blob/main/boton.png?raw=true)
+
+
+
 
 ### Instrucciónes de operación
 
 1. Iniciar simulador dando click en el boton verde de play.
-2. Visualizar los datos en el monitor serial.
-3. Colocar la temperatura y humedad dando doble click al sensor *DHT22* .
-3. Colocar la distancia dando doble click al sensor *ultrasonico* y colocar la distancia.
-4. Visualizar los datos en el monitor serial y en l0s indicadores de Node-Red.
-5. ver como se guarda la base de datos actualizando en el programa myphpMyAdmin.
+2. Visualizar los datos en el monitor serial y los procesos en la pantalla lcd.
+3. Dar doble click en el sensor ultrasonico y poner la distancia a 400.
+3. Presionar en el boton de Node-Red *mezclado*.
+4. Visualizar el procesos mezclado y vaciado.
 
 ## Resultados
 
-Cuando haya funcionado, verás los valores dentro del monitor serial en las graficas de Node-Red y en la base de datos de myphpMyAdmin como se muestra en la siguente imagen.
+Cuando haya funcionado, al poner la distancia en 400 en el sensor ultrasonico y presionar el boton mezclado en  node red, se mezclara y despues se vaciara.
 
-![](https://github.com/jroldanap/Basededatos/blob/main/wok.png?raw=true)
+![](https://github.com/jroldanap/Proyecto/blob/main/tanque%20lleno.png?raw=true)
 
-![](https://github.com/jroldanap/Basededatos/blob/main/indicadores.png?raw=true)
+![](https://github.com/jroldanap/Proyecto/blob/main/mix.jpeg?raw=true)
 
-![](https://github.com/jroldanap/Basededatos/blob/main/base.png?raw=true)
+![](https://github.com/jroldanap/Proyecto/blob/main/empty.jpeg?raw=true)
 
 
 
 
 ## Evidencias de programa corriendo
 
-![](https://github.com/jroldanap/Basededatos/blob/main/wok.png?raw=true)
+![](https://github.com/jroldanap/Proyecto/blob/main/tanque%20lleno.png?raw=true)
 
-![](https://github.com/jroldanap/Basededatos/blob/main/indicadores.png?raw=true)
+![](https://github.com/jroldanap/Proyecto/blob/main/mix.jpeg?raw=true)
 
-![](https://github.com/jroldanap/Basededatos/blob/main/base.png?raw=true)
+![](https://github.com/jroldanap/Proyecto/blob/main/empty.jpeg?raw=true)
+
 
 # Créditos
 
-Desarrollado por Jorge Alberto Roldan Aponte
+Desarrollado por Jorge Esteban Lopez Quiroz , Uriel Mastache Juarez y Jorge Alberto Roldan Aponte.
 
-- [GitHub](https://github.com/jroldanap)
-
-
-
+- Jorge Esteban Lopez Quiroz [GitHub](hhttps://github.com/jorgelopezquiroz)
+- Uriel Mastache Juarez [GitHub](https://github.com/UrielMastache)
+- Jorge Alberto Roldan Aponte  [GitHub](https://github.com/jroldanap)
